@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users (guards, supervisors, admins)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["guard", "supervisor", "admin"] },
+        "active_site_id": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Site": {
+      "title": "Site",
+      "description": "Rural locations or facilities to be guarded",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "geofence_lat": { "type": "number" },
+        "geofence_lng": { "type": "number" },
+        "geofence_radius": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "geofence_lat", "geofence_lng", "geofence_radius"]
+    },
+    "Checkpoint": {
+      "title": "Checkpoint",
+      "description": "Specific GPS points to visit during a patrol",
+      "type": "object",
+      "properties": {
+        "site_id": { "type": "string" },
+        "name": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "tolerance_radius": { "type": "number" }
+      },
+      "required": ["site_id", "name", "lat", "lng", "tolerance_radius"]
+    },
+    "AttendanceLog": {
+      "title": "AttendanceLog",
+      "description": "Check-in and check-out events",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "type": { "type": "string", "enum": ["in", "out"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "accuracy": { "type": "number" }
+      },
+      "required": ["user_id", "type", "timestamp", "lat", "lng"]
+    },
+    "PatrolSession": {
+      "title": "PatrolSession",
+      "description": "A single patrol round performed by a guard",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "site_id": { "type": "string" },
+        "start_time": { "type": "string", "format": "date-time" },
+        "end_time": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["completed", "partial", "failed"] },
+        "visited_checkpoints": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["user_id", "site_id", "start_time", "status"]
+    },
+    "PatrolTrackPoint": {
+      "title": "PatrolTrackPoint",
+      "description": "GPS breadcrumbs during a patrol",
+      "type": "object",
+      "properties": {
+        "session_id": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "accuracy": { "type": "number" }
+      },
+      "required": ["session_id", "lat", "lng", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users": { "schema": "User", "description": "System users" },
+    "sites": { "schema": "Site", "description": "Guarded locations" },
+    "checkpoints": { "schema": "Checkpoint", "description": "Patrol checkpoints" },
+    "attendance_logs": { "schema": "AttendanceLog", "description": "Attendance history" },
+    "patrol_sessions": { "schema": "PatrolSession", "description": "Patrol history" },
+    "patrol_track_points": { "schema": "PatrolTrackPoint", "description": "Detailed GPS tracks" }
+  }
+}

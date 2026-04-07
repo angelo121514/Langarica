@@ -1,0 +1,5 @@
+{
+  "name": "Langarica Security",
+  "description": "Panel administrativo para control de rondas y asistencia de guardias rurales con geocercas y tracking offline.",
+  "requestFramePermissions": ["geolocation"]
+}

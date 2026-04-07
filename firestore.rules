@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Fields: uid, email, name, role, active_site_id, createdAt
+    //
+    // Collection: sites
+    // Fields: name, geofence_lat, geofence_lng, geofence_radius, createdAt
+    //
+    // Collection: checkpoints
+    // Fields: site_id, name, lat, lng, tolerance_radius
+    //
+    // Collection: attendance_logs
+    // Fields: user_id, type, timestamp, lat, lng, accuracy
+    //
+    // Collection: patrol_sessions
+    // Fields: user_id, site_id, start_time, end_time, status, visited_checkpoints
+    //
+    // Collection: patrol_track_points
+    // Fields: session_id, lat, lng, timestamp, accuracy
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "angelotorresdiaz@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isSupervisor() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'supervisor')
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // Domain Validators
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string &&
+             isValidEmail(data.email) &&
+             data.role in ['guard', 'supervisor', 'admin'];
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && (isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role));
+    }
+
+    match /sites/{siteId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /checkpoints/{checkpointId} {
+      allow read: if isAuthenticated();
+      allow write: if isSupervisor();
+    }
+
+    match /attendance_logs/{logId} {
+      allow read: if isSupervisor() || (isAuthenticated() && request.auth.uid == resource.data.user_id);
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+    }
+
+    match /patrol_sessions/{sessionId} {
+      allow read: if isSupervisor() || (isAuthenticated() && request.auth.uid == resource.data.user_id);
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+    }
+
+    match /patrol_track_points/{pointId} {
+      allow read: if isSupervisor();
+      allow create: if isAuthenticated();
+    }
+
+    match /alerts/{alertId} {
+      allow read: if isSupervisor();
+      allow create: if isAuthenticated();
+      allow update: if isSupervisor();
+    }
+  }
+}
