@@ -106,7 +106,12 @@ interface FirestoreErrorInfo {
   }
 }
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+function handleFirestoreError(error: any, operationType: OperationType, path: string | null) {
+  const isNetworkError = error?.code === 'unavailable' || 
+                         error?.code === 'failed-precondition' ||
+                         error?.message?.includes('offline') ||
+                         error?.message?.includes('proxy');
+
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -125,7 +130,15 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path
   }
+  
   console.error('Firestore Error: ', JSON.stringify(errInfo));
+  
+  // Si es un error de red o de demo, no bloqueamos la app
+  if (isNetworkError || auth.currentUser?.uid?.startsWith('demo-')) {
+    console.warn("⚠️ Firestore no disponible (Modo Offline activo). La app continuará con datos locales.");
+    return;
+  }
+
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -734,7 +747,7 @@ const StatCard = ({ label, value, icon: Icon, color, trend }: any) => (
 
 // --- Pages ---
 
-const Login = () => {
+const Login = ({ setLoading, setUser, setProfile }: { setLoading: (v: boolean) => void, setUser: (u: any) => void, setProfile: (p: any) => void }) => {
   const handleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -799,10 +812,9 @@ const Login = () => {
                   role: 'admin' as UserRole,
                   createdAt: new Date().toISOString()
                 };
-                // @ts-ignore
                 setUser({ uid: 'demo-admin', displayName: 'Admin Demo', email: 'admin@demo.com' });
-                // @ts-ignore
                 setProfile(demoUser);
+                setLoading(false);
               }}
               className="flex-1 bg-slate-800 text-slate-300 text-[10px] font-bold py-2 rounded-lg hover:bg-slate-700 transition-all uppercase"
             >
@@ -818,10 +830,9 @@ const Login = () => {
                   is_on_duty: false,
                   createdAt: new Date().toISOString()
                 };
-                // @ts-ignore
                 setUser({ uid: 'demo-guard', displayName: 'Guardia Demo', email: 'guardia@demo.com' });
-                // @ts-ignore
                 setProfile(demoUser);
+                setLoading(false);
               }}
               className="flex-1 bg-slate-800 text-slate-300 text-[10px] font-bold py-2 rounded-lg hover:bg-slate-700 transition-all uppercase"
             >
@@ -2106,7 +2117,7 @@ export default function App() {
   }
 
   if (!user || !profile) {
-    return <Login />;
+    return <Login setUser={setUser} setProfile={setProfile} setLoading={setLoading} />;
   }
 
   return (
