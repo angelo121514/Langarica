@@ -112,6 +112,9 @@ function handleFirestoreError(error: any, operationType: OperationType, path: st
                          error?.message?.includes('offline') ||
                          error?.message?.includes('proxy');
 
+  const isAuthError = error?.code === 'permission-denied' || 
+                      error?.code === 'unauthenticated';
+
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -131,15 +134,18 @@ function handleFirestoreError(error: any, operationType: OperationType, path: st
     path
   }
   
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.error(`Firestore Error [${operationType}] at ${path}:`, errInfo);
   
-  // Si es un error de red o de demo, no bloqueamos la app
-  if (isNetworkError || auth.currentUser?.uid?.startsWith('demo-')) {
-    console.warn("⚠️ Firestore no disponible (Modo Offline activo). La app continuará con datos locales.");
+  // En modo demo o error de red/auth, solo advertimos para no tumbar la app
+  if (isNetworkError || isAuthError || !auth.currentUser || auth.currentUser?.uid?.startsWith('demo-')) {
+    console.warn("⚠️ Firestore no disponible o limitado. La app continuará en modo degradado/offline.");
     return;
   }
 
-  throw new Error(JSON.stringify(errInfo));
+  // Solo lanzamos error fatal si es algo realmente inesperado y estamos logueados
+  // para que el ErrorBoundary lo capture.
+  // throw new Error(JSON.stringify(errInfo)); 
+  // Nota: Incluso aquí podríamos preferir no lanzar error para una mejor UX.
 }
 
 class ErrorBoundary extends (Component as any) {
